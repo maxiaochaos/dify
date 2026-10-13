@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event'
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { TriggerCredentialType } from '@/app/components/workflow/block-selector/types'
+import { createHttpError } from '@/service/http-error'
 import { OAuthClientSettingsModal } from '../oauth-client'
 
 type PluginDetail = {
@@ -324,10 +325,15 @@ describe('OAuthClientSettingsModal', () => {
         expect(mockClipboardWriteText).toHaveBeenCalledWith('https://example.com/oauth/callback')
       })
 
-      expect(mockToastNotify).toHaveBeenCalledWith({
-        type: 'success',
-        message: 'common.actionMsg.copySuccessfully',
-      })
+      expect(
+        await screen.findByRole('button', { name: 'common.operation.copied' }),
+      ).toBeInTheDocument()
+      expect(mockToastNotify).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'success',
+          message: 'common.actionMsg.copySuccessfully',
+        }),
+      )
     })
   })
 
@@ -680,7 +686,7 @@ describe('OAuthClientSettingsModal', () => {
       })
     })
 
-    it('should extract error message from object with message property', () => {
+    it('should extract the backend message from an API error', () => {
       const configWithCustomEnabled = createMockOAuthConfig({
         system_configured: false,
         custom_enabled: true,
@@ -688,7 +694,9 @@ describe('OAuthClientSettingsModal', () => {
       })
 
       mockDeleteOAuth.mockImplementation((provider, { onError }) => {
-        onError({ message: 'Object error message' })
+        onError(
+          createHttpError(new Response(null, { status: 503 }), { message: 'Object error message' }),
+        )
       })
 
       render(<OAuthClientSettingsModal {...defaultProps} oauthConfig={configWithCustomEnabled} />)
